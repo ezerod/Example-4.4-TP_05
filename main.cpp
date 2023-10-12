@@ -2,7 +2,7 @@
 
 #include "mbed.h"
 #include "arm_book_lib.h"
-
+#include <string>
 //=====[Defines]===============================================================
 
 #define NUMBER_OF_KEYS                           4
@@ -24,7 +24,7 @@ typedef enum {
     MATRIX_KEYPAD_SCANNING,
     MATRIX_KEYPAD_DEBOUNCE,
     MATRIX_KEYPAD_KEY_HOLD_PRESSED
-} matrixKeypadState_t;
+} matrixKeypadState_t;  //GRUPO. Los estados de la FSM del teclado matricial
 
 typedef struct systemEvent {
     time_t seconds;
@@ -47,7 +47,7 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 AnalogIn lm35(A1);
 
 DigitalOut keypadRowPins[KEYPAD_NUMBER_OF_ROWS] = {PB_3, PB_5, PC_7, PA_15};
-DigitalIn keypadColPins[KEYPAD_NUMBER_OF_COLS]  = {PB_12, PB_13, PB_15, PC_6};
+DigitalIn keypadColPins[KEYPAD_NUMBER_OF_COLS]  = {PB_12, PB_13, PB_15, PC_6};  //GRUPO. Acá están los pines de la placa que van al teclado
 
 //=====[Declaration and initialization of public global variables]=============
 
@@ -115,6 +115,8 @@ void lm35ReadingsArrayInit();
 void matrixKeypadInit();
 char matrixKeypadScan();
 char matrixKeypadUpdate();
+string matrixKeypadStateToString(matrixKeypadState_t _matrixKeypadState); //GRUPO
+void printMatrixKeypadMessages();   //GRUPO
 
 //=====[Main function, the program entry point after power on or reset]========
 
@@ -127,7 +129,7 @@ int main()
         alarmDeactivationUpdate();
         uartTask();
         eventLogUpdate();
-        delay(TIME_INCREMENT_MS);
+        delay(TIME_INCREMENT_MS);   //GRUPO. periodicidad con la que se activa la maquina de estados (aproximadamente)
     }
 }
 
@@ -578,7 +580,7 @@ char matrixKeypadUpdate()
 
     case MATRIX_KEYPAD_DEBOUNCE:
         if( accumulatedDebounceMatrixKeypadTime >=
-            DEBOUNCE_KEY_TIME_MS ) {
+            DEBOUNCE_KEY_TIME_MS ) {    
             keyDetected = matrixKeypadScan();
             if( keyDetected == matrixKeypadLastKeyPressed ) {
                 matrixKeypadState = MATRIX_KEYPAD_KEY_HOLD_PRESSED;
@@ -605,4 +607,55 @@ char matrixKeypadUpdate()
         break;
     }
     return keyReleased;
+}
+
+void printMatrixKeypadMessages() {
+    string stateKeypad = matrixKeypadStateToString(matrixKeypadState);
+    string debounceKeypad = to_string(accumulatedDebounceMatrixKeypadTime);
+    string keypadActualRow, keypadActualCol;
+    bool characterFound = false;
+    string str;
+
+    for(int i = 0; i < KEYPAD_NUMBER_OF_COLS * KEYPAD_NUMBER_OF_ROWS && characterFound == false; i++) {
+        if(matrixKeypadIndexToCharArray[i] == matrixKeypadLastKeyPressed) {
+            characterFound = true;
+            keypadActualRow = to_string(i / KEYPAD_NUMBER_OF_ROWS);
+            keypadActualCol = to_string(i % KEYPAD_NUMBER_OF_ROWS); //GRUPO. pos en el array = row*KEYPAD_NUMBER_OF_ROWS + col
+        }
+    }
+
+    sprintf(str,"El estado es: ");
+    uartUsb.write(str,strlen(str));
+    uartUsb.write(stateKeypad, strlen(stateKeypad));    //imprimo el estado
+    uartUsb.write("\n",1);
+
+    sprintf(str,"El debounce actualmente corrió (en ms): ");
+    uartUsb.write(str,strlen(str));
+    uartUsb.write(debounceKeypad, strlen(debounceKeypad));  //imprimo el tiempo de debounce actual
+    uartUsb.write("\n",1);
+
+    sprintf(str,"La fila actual es: ");
+    uartUsb.write(str,strlen(str));
+    uartUsb.write(keypadActualRow, strlen(keypadActualRow));    //imprimo la fila actual
+    uartUsb.write("\n",1);
+    
+    sprintf(str,"La columna actual es: ");
+    uartUsb.write(str,strlen(str));
+    uartUsb.write(keypadActualCol, strlen(keypadActualCol));    //imprimo la columna actual
+    uartUsb.write("\n",1);
+}
+
+string matrixKeypadStateToString(matrixKeypadState_t _matrixKeypadState) {
+    string str;
+    if(_matrixKeypadState == MATRIX_KEYPAD_SCANNING) {
+        str = "MATRIX_KEYPAD_SCANNING";
+    }
+    else if (_matrixKeypadState == MATRIX_KEYPAD_DEBOUNCE) {
+        str = "MATRIX_KEYPAD_DEBOUNCE";
+    }
+    else {
+        str = "MATRIX_KEYPAD_KEY_HOLD_PRESSED";
+    }
+
+    return str;
 }
