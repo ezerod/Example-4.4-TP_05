@@ -2,6 +2,7 @@
 
 #include "mbed.h"
 #include "arm_book_lib.h"
+#include <vector>
 //=====[Defines]===============================================================
 
 #define NUMBER_OF_KEYS                           4
@@ -58,10 +59,10 @@ AnalogIn lm35(A1);
                             Además, contienen los subsegundos, segundos, minutos, horas, día y fecha.
 */
 
-//GRUPO. Estos son los pines que se usan para controlar el teclado.
-DigitalOut keypadRowPins[KEYPAD_NUMBER_OF_ROWS] = {PB_3, PB_5, PC_7, PA_15};
-//GRUPO. Acá están los pines de la placa que van al teclado
-DigitalIn keypadColPins[KEYPAD_NUMBER_OF_COLS]  = {PB_12, PB_13, PB_15, PC_6};
+//GRUPO. Estos son los pines que se usan para controlar el teclado. Usamos vector para modificar el uso.
+vector <DigitalOut> keypadRowPins = {PB_3, PB_5, PC_7, PA_15};
+//GRUPO. Acá están los pines de la placa que van al teclado. Usamos vector para modificar el uso.
+vector <DigitalIn> keypadColPins = {PB_12, PB_13, PB_15, PC_6};
 
 //=====[Declaration and initialization of public global variables]=============
 
