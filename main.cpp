@@ -2,7 +2,6 @@
 
 #include "mbed.h"
 #include "arm_book_lib.h"
-#include <string>
 //=====[Defines]===============================================================
 
 #define NUMBER_OF_KEYS                           4
@@ -20,11 +19,12 @@
 
 //=====[Declaration of public data types]======================================
 
+//GRUPO. Los estados de la FSM del teclado matricial
 typedef enum {
     MATRIX_KEYPAD_SCANNING,
     MATRIX_KEYPAD_DEBOUNCE,
     MATRIX_KEYPAD_KEY_HOLD_PRESSED
-} matrixKeypadState_t;  //GRUPO. Los estados de la FSM del teclado matricial
+} matrixKeypadState_t;
 
 typedef struct systemEvent {
     time_t seconds;
@@ -46,8 +46,10 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 AnalogIn lm35(A1);
 
+//GRUPO. Estos son los pines que se usan para controlar el teclado.
 DigitalOut keypadRowPins[KEYPAD_NUMBER_OF_ROWS] = {PB_3, PB_5, PC_7, PA_15};
-DigitalIn keypadColPins[KEYPAD_NUMBER_OF_COLS]  = {PB_12, PB_13, PB_15, PC_6};  //GRUPO. Acá están los pines de la placa que van al teclado
+//GRUPO. Acá están los pines de la placa que van al teclado
+DigitalIn keypadColPins[KEYPAD_NUMBER_OF_COLS]  = {PB_12, PB_13, PB_15, PC_6};
 
 //=====[Declaration and initialization of public global variables]=============
 
@@ -115,8 +117,8 @@ void lm35ReadingsArrayInit();
 void matrixKeypadInit();
 char matrixKeypadScan();
 char matrixKeypadUpdate();
-string matrixKeypadStateToString(matrixKeypadState_t _matrixKeypadState); //GRUPO
-void printMatrixKeypadMessages();   //GRUPO
+void matrixKeypadStateToString(matrixKeypadState_t _matrixKeypadState, char * stateKeypad); //GRUPO: Convierte el tipo enumerativo en una string.
+void printMatrixKeypadMessages();   //GRUPO:
 
 //=====[Main function, the program entry point after power on or reset]========
 
@@ -129,7 +131,8 @@ int main()
         alarmDeactivationUpdate();
         uartTask();
         eventLogUpdate();
-        delay(TIME_INCREMENT_MS);   //GRUPO. periodicidad con la que se activa la maquina de estados (aproximadamente)
+        //GRUPO. TIME_INCREMENT_MS (10ms): Periodicidad con la que se activa la maquina de estados (aproximadamente)
+        delay(TIME_INCREMENT_MS);
     }
 }
 
@@ -139,6 +142,8 @@ void inputsInit()
 {
     lm35ReadingsArrayInit();
     alarmTestButton.mode(PullDown);
+    //GRUPO: PARA PRENDER LA ALARMA.
+    mq2.mode(PullDown);
     sirenPin.mode(OpenDrain);
     sirenPin.input();
     matrixKeypadInit();
@@ -230,7 +235,7 @@ void alarmDeactivationUpdate()
             }
         }
         if( keyReleased == '#' ) {
-            if( incorrectCodeLed ) {
+            if( false /*incorrectCodeLed*/ ) {
                 numberOfHashKeyReleasedEvents++;
                 if( numberOfHashKeyReleasedEvents >= 2 ) {
                     incorrectCodeLed = OFF;
@@ -431,6 +436,12 @@ void uartTask()
                 }
                 break;
 
+            //GRUPO: Se agrega el comando para conocer los estados de la FSM.
+            case 'q':
+            case 'Q':
+                printMatrixKeypadMessages();
+                break;
+
         default:
             availableCommands();
             break;
@@ -452,6 +463,8 @@ void availableCommands()
     uartUsb.write( "Press 's' or 'S' to set the date and time\r\n", 43 );
     uartUsb.write( "Press 't' or 'T' to get the date and time\r\n", 43 );
     uartUsb.write( "Press 'e' or 'E' to get the stored events\r\n\r\n", 45 );
+    //GRUPO: Se agrega el comando para conocer los estados de la FSM.
+    uartUsb.write( "Press 'q' or 'Q' to get the FSM state\r\n\r\n", 41 );
 }
 
 bool areEqual()
@@ -610,52 +623,53 @@ char matrixKeypadUpdate()
 }
 
 void printMatrixKeypadMessages() {
-    string stateKeypad = matrixKeypadStateToString(matrixKeypadState);
-    string debounceKeypad = to_string(accumulatedDebounceMatrixKeypadTime);
-    string keypadActualRow, keypadActualCol;
+    char stateKeypad[32];
+    matrixKeypadStateToString(matrixKeypadState, stateKeypad);
+    char debounceKeypad[2];
+    sprintf(debounceKeypad, "%d", accumulatedDebounceMatrixKeypadTime);
+    char keypadActualRow[2];
+    char keypadActualCol[2];
     bool characterFound = false;
-    string str;
+    char str[100];
 
     for(int i = 0; i < KEYPAD_NUMBER_OF_COLS * KEYPAD_NUMBER_OF_ROWS && characterFound == false; i++) {
         if(matrixKeypadIndexToCharArray[i] == matrixKeypadLastKeyPressed) {
             characterFound = true;
-            keypadActualRow = to_string(i / KEYPAD_NUMBER_OF_ROWS);
-            keypadActualCol = to_string(i % KEYPAD_NUMBER_OF_ROWS); //GRUPO. pos en el array = row*KEYPAD_NUMBER_OF_ROWS + col
+            sprintf(keypadActualRow, "%d", i / KEYPAD_NUMBER_OF_ROWS);
+            //GRUPO. Pos en el array = row * KEYPAD_NUMBER_OF_ROWS + col
+            sprintf(keypadActualCol, "%d", i % KEYPAD_NUMBER_OF_ROWS); 
         }
     }
 
-    sprintf(str,"El estado es: ");
-    uartUsb.write(str,strlen(str));
+    sprintf(str, "El estado es: ");
+    uartUsb.write(str, strlen(str));
     uartUsb.write(stateKeypad, strlen(stateKeypad));    //imprimo el estado
-    uartUsb.write("\n",1);
+    uartUsb.write("\n", 1);
 
     sprintf(str,"El debounce actualmente corrió (en ms): ");
-    uartUsb.write(str,strlen(str));
+    uartUsb.write(str, strlen(str));
     uartUsb.write(debounceKeypad, strlen(debounceKeypad));  //imprimo el tiempo de debounce actual
-    uartUsb.write("\n",1);
+    uartUsb.write("\n", 1);
 
     sprintf(str,"La fila actual es: ");
-    uartUsb.write(str,strlen(str));
+    uartUsb.write(str, strlen(str));
     uartUsb.write(keypadActualRow, strlen(keypadActualRow));    //imprimo la fila actual
-    uartUsb.write("\n",1);
+    uartUsb.write("\n", 1);
     
     sprintf(str,"La columna actual es: ");
     uartUsb.write(str,strlen(str));
     uartUsb.write(keypadActualCol, strlen(keypadActualCol));    //imprimo la columna actual
-    uartUsb.write("\n",1);
+    uartUsb.write("\n", 1);
 }
 
-string matrixKeypadStateToString(matrixKeypadState_t _matrixKeypadState) {
-    string str;
+void matrixKeypadStateToString(matrixKeypadState_t _matrixKeypadState, char * stateKeypad) {
     if(_matrixKeypadState == MATRIX_KEYPAD_SCANNING) {
-        str = "MATRIX_KEYPAD_SCANNING";
+        sprintf(stateKeypad, "MATRIX_KEYPAD_SCANNING");
     }
     else if (_matrixKeypadState == MATRIX_KEYPAD_DEBOUNCE) {
-        str = "MATRIX_KEYPAD_DEBOUNCE";
+        sprintf(stateKeypad, "MATRIX_KEYPAD_DEBOUNCE");
     }
     else {
-        str = "MATRIX_KEYPAD_KEY_HOLD_PRESSED";
+        sprintf(stateKeypad, "MATRIX_KEYPAD_KEY_HOLD_PRESSED");
     }
-
-    return str;
 }
