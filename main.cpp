@@ -46,6 +46,18 @@ UnbufferedSerial uartUsb(USBTX, USBRX, 115200);
 
 AnalogIn lm35(A1);
 
+/*  GRUPO:  Punto 7-C:
+    El microcontrolador cuenta con dos dominios de backup, una memoria SRAM de 4Kbytes y 20 registros de backup alimentados
+    por VBAT cuando VDD no se encuentra encendida.
+    - MEMORIA SRAM: Es un área de respaldo similar a una memoria EEPROM, la cual se puede utilizar para almacenar datos.
+                    que deben mantenerse en VBAT y en modo de espera. En principio se encuentra deshabilitada para 
+                    minimizar el consumo de energía y puede ser habilitada por SW.
+    - RESGISTROS DE BACKUP: Son registros de 32 bits que se utilizan para almacenar 80 bytes de datos de la aplicación del 
+                            usuario cuando no hay alimentación VDD. Estos registros no se restablecen mediante un sistema, un 
+                            restablecimiento de energía o cuando el dispositivo se despierta del modo de espera. 
+                            Además, contienen los subsegundos, segundos, minutos, horas, día y fecha.
+*/
+
 //GRUPO. Estos son los pines que se usan para controlar el teclado.
 DigitalOut keypadRowPins[KEYPAD_NUMBER_OF_ROWS] = {PB_3, PB_5, PC_7, PA_15};
 //GRUPO. Acá están los pines de la placa que van al teclado
@@ -351,6 +363,14 @@ void uartTask()
             
         case 's':
         case 'S':
+            /*  GRUPO: Utilizamos la estructura tm, que nos permite guardar  los siguientes datos:
+                - tm_sec: Segundos -> entero entre 0 y 59.
+                - tm_min: Minutos -> entero entre 0 y 59.
+                - tm_hour: Horas -> entero entre 0 y 23.
+                - tm_day: Día del mes -> entero entre 1 y 31.
+                - tm_mon: Mes del año -> entero entre 1 y 12.
+                - tm_year: Años desde 1900, por eso restamos 1900 en el código al usar atoi().
+            */
             struct tm rtcTime;
             int strIndex;
                     
@@ -409,15 +429,24 @@ void uartTask()
             uartUsb.write( "\r\n", 2 );
 
             rtcTime.tm_isdst = -1;
+            
+            /*  GRUPO:  Una vez cargados los datos de la estructura, utilizamos la función set_time para setear el reloj. Si 
+                        tenemos mas relojes, serán un offset del mismo.
+                        La función mktime se encarga de transformar los datos de la estructura tm en la variable time_t que 
+                        cuenta los segundos a partir de las 00 horas del primero de enero de 1970. 
+            */
             set_time( mktime( &rtcTime ) );
             uartUsb.write( "Date and time has been set\r\n", 28 );
 
             break;
-                        
+
             case 't':
             case 'T':
                 time_t epochSeconds;
-                epochSeconds = time(NULL);
+                /*  GRUPO:  Seteo un nuevo reloj, en este caso, si previamente seteamos el reloj en 's' lo que haremos es 
+                            sumarle un offset, que es NULL, es decir no se suma nada.
+                */
+                epochSeconds = time(NULL);  
                 sprintf ( str, "Date and Time = %s", ctime(&epochSeconds));
                 uartUsb.write( str , strlen(str) );
                 uartUsb.write( "\r\n", 2 );
