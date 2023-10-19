@@ -103,7 +103,7 @@ char matrixKeypadIndexToCharArray[] = {
 };
 matrixKeypadState_t matrixKeypadState;
 
-int eventsIndex            = 0;
+int eventsIndex = 0;
 systemEvent_t arrayOfStoredEvents[EVENT_MAX_STORAGE];
 
 //=====[Declarations (prototypes) of public functions]=========================
@@ -139,6 +139,7 @@ int main()
 {
     inputsInit();
     outputsInit();
+    availableCommands();
     while (true) {
         alarmActivationUpdate();
         alarmDeactivationUpdate();
